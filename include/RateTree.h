@@ -1,333 +1,491 @@
-// RateTree.h  -- MODULE 3: Search & Trees
-// Owner: Brijesh Gaur
-//
-// Topics covered:
-//   DSA : Binary Search Tree, AVL self-balancing tree (rotations), recursion,
-//         in-order traversal, range search, Huffman coding (priority queue +
-//         binary tree), pointers
-//   OOP : class templates, operator overloading (<, ==, <<), constructors,
-//         destructors, exception handling
-//   STL : vector, map, priority_queue, unordered_map
-#ifndef VELORENT_RATETREE_H
-#define VELORENT_RATETREE_H
-
-#include <algorithm>
 #include <iostream>
-#include <map>
-#include <queue>
 #include <string>
+#include <algorithm>
+#include <queue>
 #include <unordered_map>
-#include <vector>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
 
-#include "Exceptions.h"
+using namespace std;
 
-// ---------------------------------------------------------------------------
-// One entry of the price index: (daily rate, VIN). The AVL tree sorts these.
-// Operators are overloaded so the generic tree can compare them with  <
-// ---------------------------------------------------------------------------
-struct RateEntry {
-    double rate;
-    std::string vin;
-
-    bool operator<(const RateEntry& o) const {
-        return rate < o.rate || (rate == o.rate && vin < o.vin);
-    }
-    bool operator>(const RateEntry& o) const { return o < *this; }
-    bool operator==(const RateEntry& o) const { return rate == o.rate && vin == o.vin; }
+// ==========================================
+// 1. SHARED VEHICLE STRUCTURE (Module 1-4)
+// ==========================================
+struct Vehicle {
+    string vehicleID;
+    string name;
+    string type;
+    double pricePerHour;
+    bool isAvailable;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const RateEntry& e) {
-    return os << "Rs." << e.rate << " (" << e.vin << ")";
-}
+// ==========================================
+// 2. HUFFMAN COMPRESSION & DECOMPRESSION ENGINE
+// ==========================================
+struct HuffmanNode {
+    char ch;
+    int freq;
+    HuffmanNode *left, *right;
 
-// ---------------------------------------------------------------------------
-// AVL tree (class template): a BST that rebalances itself with rotations so
-// its height stays O(log n). Insert / search / range query = O(log n).
-// Works for ANY type T that has operator<.
-// ---------------------------------------------------------------------------
-template <typename T>
-class AVLTree {
-    struct Node {
-        T key;
-        Node* left;
-        Node* right;
-        int height;
-        explicit Node(const T& k) : key(k), left(nullptr), right(nullptr), height(1) {}
-    };
+    HuffmanNode(char character, int frequency) {
+        ch = character;
+        freq = frequency;
+        left = right = nullptr;
+    }
+    
+    ~HuffmanNode() {
+        delete left;
+        delete right;
+    }
+};
 
-    Node* root_ = nullptr;
-    std::size_t size_ = 0;
+struct CompareNodes {
+    bool operator()(HuffmanNode* l, HuffmanNode* r) {
+        return l->freq > r->freq;
+    }
+};
 
-    static int h(const Node* n) { return n ? n->height : 0; }
-    static void update(Node* n) { n->height = 1 + std::max(h(n->left), h(n->right)); }
-    static int balanceFactor(const Node* n) { return n ? h(n->left) - h(n->right) : 0; }
+class HuffmanCompressor {
+private:
+    void generateCodes(HuffmanNode* root, string str, unordered_map<char, string>& huffmanCodes) {
+        if (!root) return;
 
-    // Right rotation (left rotation is the mirror image):
-    //   before: y has left child x;  x has subtrees A (left) and B (right); y has right subtree C
-    //   after : x becomes the root;  x.left = A;  x.right = y;  y.left = B;  y.right = C
-    static Node* rotateRight(Node* y) {
-        Node* x = y->left;
-        y->left = x->right;
+        if (!root->left && !root->right) {
+            huffmanCodes[root->ch] = str;
+        }
+
+        generateCodes(root->left, str + "0", huffmanCodes);
+        generateCodes(root->right, str + "1", huffmanCodes);
+    }
+
+public:
+    string compressText(const string& text, unordered_map<char, string>& outCodes) {
+        if (text.empty()) return "";
+
+        unordered_map<char, int> freqMap;
+        for (char c : text) {
+            freqMap[c]++;
+        }
+
+        priority_queue<HuffmanNode*, vector<HuffmanNode*>, CompareNodes> minHeap;
+        for (auto pair : freqMap) {
+            minHeap.push(new HuffmanNode(pair.first, pair.second));
+        }
+
+        if (minHeap.size() == 1) {
+            HuffmanNode* single = minHeap.top();
+            minHeap.pop();
+            minHeap.push(new HuffmanNode('\0', single->freq));
+            minHeap.top()->left = single;
+        }
+
+        while (minHeap.size() > 1) {
+            HuffmanNode* left = minHeap.top(); minHeap.pop();
+            HuffmanNode* right = minHeap.top(); minHeap.pop();
+
+            HuffmanNode* parent = new HuffmanNode('\0', left->freq + right->freq);
+            parent->left = left;
+            parent->right = right;
+            minHeap.push(parent);
+        }
+
+        HuffmanNode* root = minHeap.top();
+        generateCodes(root, "", outCodes);
+
+        string encodedString = "";
+        for (char c : text) {
+            encodedString += outCodes[c];
+        }
+
+        delete root;
+        return encodedString;
+    }
+};
+
+
+// ==========================================
+// 3. AVL TREE FOR PRICE INDEXING & SEARCH
+// ==========================================
+struct AVLNode {
+    Vehicle vehicle;
+    int height;
+    AVLNode* left;
+    AVLNode* right;
+
+    AVLNode(const Vehicle& v) {
+        vehicle = v;
+        height = 1;
+        left = right = nullptr;
+    }
+
+    ~AVLNode() {
+        delete left;
+        delete right;
+    }
+};
+
+class PriceAVLTree {
+private:
+    AVLNode* root;
+
+    int height(AVLNode* node) {
+        return node ? node->height : 0;
+    }
+
+    int getBalanceFactor(AVLNode* node) {
+        return node ? height(node->left) - height(node->right) : 0;
+    }
+
+    AVLNode* rightRotate(AVLNode* y) {
+        AVLNode* x = y->left;
+        AVLNode* T2 = x->right;
+
         x->right = y;
-        update(y);
-        update(x);
+        y->left = T2;
+
+        y->height = max(height(y->left), height(y->right)) + 1;
+        x->height = max(height(x->left), height(x->right)) + 1;
+
         return x;
     }
 
-    static Node* rotateLeft(Node* x) {
-        Node* y = x->right;
-        x->right = y->left;
+    AVLNode* leftRotate(AVLNode* x) {
+        AVLNode* y = x->right;
+        AVLNode* T2 = y->left;
+
         y->left = x;
-        update(x);
-        update(y);
+        x->right = T2;
+
+        x->height = max(height(x->left), height(x->right)) + 1;
+        y->height = max(height(y->left), height(y->right)) + 1;
+
         return y;
     }
 
-    Node* insert(Node* n, const T& key, bool& inserted) {
-        if (!n) {
-            inserted = true;
-            return new Node(key);
-        }
-        if (key < n->key)
-            n->left = insert(n->left, key, inserted);
-        else if (n->key < key)
-            n->right = insert(n->right, key, inserted);
+    AVLNode* insert(AVLNode* node, const Vehicle& vehicle) {
+        if (!node) return new AVLNode(vehicle);
+
+        if (vehicle.pricePerHour < node->vehicle.pricePerHour)
+            node->left = insert(node->left, vehicle);
         else
-            return n;                                   // duplicate: ignore
+            node->right = insert(node->right, vehicle); // Allows duplicates on right branch
 
-        update(n);
-        int bf = balanceFactor(n);
-        if (bf > 1 && key < n->left->key) return rotateRight(n);          // Left-Left
-        if (bf < -1 && n->right->key < key) return rotateLeft(n);         // Right-Right
-        if (bf > 1 && n->left->key < key) {                               // Left-Right
-            n->left = rotateLeft(n->left);
-            return rotateRight(n);
-        }
-        if (bf < -1 && key < n->right->key) {                             // Right-Left
-            n->right = rotateRight(n->right);
-            return rotateLeft(n);
-        }
-        return n;
-    }
+        node->height = 1 + max(height(node->left), height(node->right));
+        int balance = getBalanceFactor(node);
 
-    static void inorder(const Node* n, std::vector<T>& out) {
-        if (!n) return;
-        inorder(n->left, out);
-        out.push_back(n->key);
-        inorder(n->right, out);
-    }
+        // Left Left Case
+        if (balance > 1 && vehicle.pricePerHour < node->left->vehicle.pricePerHour)
+            return rightRotate(node);
 
-    // Collects every key k with lo <= k <= hi, skipping subtrees that cannot match.
-    static void range(const Node* n, const T& lo, const T& hi, std::vector<T>& out) {
-        if (!n) return;
-        if (lo < n->key) range(n->left, lo, hi, out);
-        if (!(n->key < lo) && !(hi < n->key)) out.push_back(n->key);
-        if (n->key < hi) range(n->right, lo, hi, out);
-    }
+        // Right Right Case
+        if (balance < -1 && vehicle.pricePerHour > node->right->vehicle.pricePerHour)
+            return leftRotate(node);
 
-    static void destroy(Node* n) {
-        if (!n) return;
-        destroy(n->left);
-        destroy(n->right);
-        delete n;
-    }
-
-    static void printTree(const Node* n, int depth, std::ostream& os) {
-        if (!n) return;
-        printTree(n->right, depth + 1, os);
-        os << std::string(static_cast<std::size_t>(depth) * 6, ' ') << n->key << "\n";
-        printTree(n->left, depth + 1, os);
-    }
-
-public:
-    AVLTree() = default;
-    AVLTree(const AVLTree&) = delete;
-    AVLTree& operator=(const AVLTree&) = delete;
-    ~AVLTree() { destroy(root_); }
-
-    bool insert(const T& key) {
-        bool inserted = false;
-        root_ = insert(root_, key, inserted);
-        if (inserted) ++size_;
-        return inserted;
-    }
-
-    bool contains(const T& key) const {
-        const Node* n = root_;
-        while (n) {
-            if (key < n->key) n = n->left;
-            else if (n->key < key) n = n->right;
-            else return true;
-        }
-        return false;
-    }
-
-    const T& findMin() const {
-        if (!root_) throw NotFoundException("Tree is empty");
-        const Node* n = root_;
-        while (n->left) n = n->left;
-        return n->key;
-    }
-
-    const T& findMax() const {
-        if (!root_) throw NotFoundException("Tree is empty");
-        const Node* n = root_;
-        while (n->right) n = n->right;
-        return n->key;
-    }
-
-    std::vector<T> inorder() const {
-        std::vector<T> out;
-        inorder(root_, out);
-        return out;
-    }
-
-    std::vector<T> rangeQuery(const T& lo, const T& hi) const {
-        std::vector<T> out;
-        range(root_, lo, hi, out);
-        return out;
-    }
-
-    int height() const { return h(root_); }
-    std::size_t size() const { return size_; }
-    bool empty() const { return size_ == 0; }
-    void print(std::ostream& os = std::cout) const { printTree(root_, 0, os); }
-};
-
-// Convenience: all vehicles with  minRate <= rate <= maxRate
-inline std::vector<RateEntry> rangeByRate(const AVLTree<RateEntry>& tree, double minRate,
-                                          double maxRate) {
-    if (minRate > maxRate) throw InvalidInputException("minRate cannot exceed maxRate");
-    // "\x7f" is bigger than any normal VIN, so it acts as +infinity for the VIN tie-break.
-    return tree.rangeQuery(RateEntry{minRate, ""}, RateEntry{maxRate, std::string(1, '\x7f')});
-}
-
-// ---------------------------------------------------------------------------
-// Huffman coding: frequent characters get SHORT bit codes, rare ones LONG
-// codes, so receipts / logs take fewer bits. Built with a min-heap.
-// (Here the "bit string" is kept as text of '0'/'1' to keep it easy to show.)
-// ---------------------------------------------------------------------------
-class HuffmanCoder {
-    struct HNode {
-    char ch;
-    int freq;
-    int order;
-    HNode* left;
-    HNode* right;
-
-    HNode(char c, int f, int o, HNode* l, HNode* r)
-        : ch(c), freq(f), order(o), left(l), right(r) {}
-    };
-    
-    struct Cmp {                       // min-heap on frequency
-        bool operator()(const HNode* a, const HNode* b) const {
-            if (a->freq != b->freq) return a->freq > b->freq;
-            return a->order > b->order;
-        }
-    };
-
-    HNode* root_ = nullptr;
-    std::unordered_map<char, std::string> codes_;
-
-    static void destroy(HNode* n) {
-        if (!n) return;
-        destroy(n->left);
-        destroy(n->right);
-        delete n;
-    }
-
-    void assign(const HNode* n, const std::string& prefix) {
-        if (!n) return;
-        if (!n->left && !n->right) {                    // leaf = a real character
-            codes_[n->ch] = prefix.empty() ? "0" : prefix;
-            return;
-        }
-        assign(n->left, prefix + "0");
-        assign(n->right, prefix + "1");
-    }
-
-public:
-    HuffmanCoder() = default;
-    HuffmanCoder(const HuffmanCoder&) = delete;
-    HuffmanCoder& operator=(const HuffmanCoder&) = delete;
-    ~HuffmanCoder() { destroy(root_); }
-
-    void build(const std::string& text) {
-        if (text.empty()) throw InvalidInputException("Cannot build Huffman tree for empty text");
-        destroy(root_);
-        root_ = nullptr;
-        codes_.clear();
-
-        std::map<char, int> freq;                       // ordered map -> deterministic
-        for (char c : text) ++freq[c];
-
-        std::priority_queue<HNode*, std::vector<HNode*>, Cmp> pq;
-        int order = 0;
-        for (const auto& entry : freq) {
-            char ch = entry.first;
-            int f = entry.second;
-            pq.push(new HNode(ch, f, order++, nullptr, nullptr));
+        // Left Right Case
+        if (balance > 1 && vehicle.pricePerHour > node->left->vehicle.pricePerHour) {
+            node->left = leftRotate(node->left);
+            return rightRotate(node);
         }
 
-        while (pq.size() > 1) {                         // merge two rarest nodes
-            HNode* a = pq.top(); pq.pop();
-            HNode* b = pq.top(); pq.pop();
-            pq.push(new HNode{'\0', a->freq + b->freq, order++, a, b});
+        // Right Left Case
+        if (balance < -1 && vehicle.pricePerHour < node->right->vehicle.pricePerHour) {
+            node->right = rightRotate(node->right);
+            return leftRotate(node);
         }
-        root_ = pq.top();
-        assign(root_, "");
+
+        return node;
     }
 
-    std::string encode(const std::string& text) const {
-        if (!root_) throw InvalidInputException("Call build() first");
-        std::string bits;
-        for (char c : text) {
-            auto it = codes_.find(c);
-            if (it == codes_.end()) throw InvalidInputException("Character not in Huffman tree");
-            bits += it->second;
+    void inOrder(AVLNode* node, Vehicle results[], int& count, int maxResults) {
+        if (!node || count >= maxResults) return;
+        inOrder(node->left, results, count, maxResults);
+        if (count < maxResults) {
+            results[count++] = node->vehicle;
         }
-        return bits;
+        inOrder(node->right, results, count, maxResults);
     }
 
-    std::string decode(const std::string& bits) const {
-        if (!root_) throw InvalidInputException("Call build() first");
-        std::string out;
-        if (!root_->left && !root_->right) {            // only one distinct character
-            out.assign(bits.size(), root_->ch);
-            return out;
+    void rangeSearchRecursive(AVLNode* node, double minP, double maxP, Vehicle results[], int& count, int maxResults) {
+        if (!node || count >= maxResults) return;
+
+        // Prune left subtree if current price is greater than minP
+        if (node->vehicle.pricePerHour >= minP) {
+            rangeSearchRecursive(node->left, minP, maxP, results, count, maxResults);
         }
-        const HNode* cur = root_;
-        for (char b : bits) {
-            if (b != '0' && b != '1') throw InvalidInputException("Bits must be 0 or 1");
-            cur = (b == '0') ? cur->left : cur->right;
-            if (!cur->left && !cur->right) {            // reached a leaf
-                out += cur->ch;
-                cur = root_;
+
+        // Check current node
+        if (node->vehicle.pricePerHour >= minP && node->vehicle.pricePerHour <= maxP) {
+            if (count < maxResults) {
+                results[count++] = node->vehicle;
             }
         }
-        return out;
-    }
 
-    const std::unordered_map<char, std::string>& codes() const { return codes_; }
-
-    void printCodes(std::ostream& os = std::cout) const {
-        std::vector<std::pair<char, std::string>> v(codes_.begin(), codes_.end());
-        std::sort(v.begin(), v.end(), [](const auto& a, const auto& b) {
-            return a.second.size() != b.second.size() ? a.second.size() < b.second.size()
-                                                      : a.first < b.first;
-        });
-        for (const auto& entry : v) {
-            char c = entry.first;
-            const std::string& code = entry.second;
-            os << "  '" << (c == ' ' ? std::string("space") : (c == '\n' ? std::string("\\n") : std::string(1, c)))
-               << "' -> " << code << "\n";
+        // Prune right subtree if current price is less than maxP
+        if (node->vehicle.pricePerHour <= maxP) {
+            rangeSearchRecursive(node->right, minP, maxP, results, count, maxResults);
         }
     }
 
-    // compressed bits / original bits (8 bits per char); smaller is better
-    double compressionRatio(const std::string& text) const {
-        return static_cast<double>(encode(text).size()) / (8.0 * static_cast<double>(text.size()));
+public:
+    PriceAVLTree() : root(nullptr) {}
+
+    void buildTree(Vehicle* inventory, int size) {
+        root = nullptr;
+        for (int i = 0; i < size; ++i) {
+            root = insert(root, inventory[i]);
+        }
+    }
+
+    int getAllSorted(Vehicle results[], int maxResults) {
+        int count = 0;
+        inOrder(root, results, count, maxResults);
+        return count;
+    }
+
+    int searchRange(double minP, double maxP, Vehicle results[], int maxResults) {
+        int count = 0;
+        rangeSearchRecursive(root, minP, maxP, results, count, maxResults);
+        return count;
     }
 };
 
-#endif
+
+// ==========================================
+// 4. ARCHIVED RECEIPT RECORD STRUCTURE
+// ==========================================
+struct ArchivedReceiptRecord {
+    string compressedBits;
+    unordered_map<string, char> reverseCodes;
+    string originalPreview;
+};
+
+
+// ==========================================
+// 5. MODULE 3 CONTROLLER & MENU DRIVER
+// ==========================================
+class Module3Controller {
+private:
+    Vehicle* sharedInventory;
+    int& inventorySize;
+    PriceAVLTree avlTree;
+    HuffmanCompressor compressor;
+    
+    ArchivedReceiptRecord archivedReceipts[50];
+    int archiveCount;
+
+public:
+    Module3Controller(Vehicle* inventory, int& size) 
+        : sharedInventory(inventory), inventorySize(size), archiveCount(0) {
+        // Build AVL tree initially from shared inventory
+        avlTree.buildTree(sharedInventory, inventorySize);
+    }
+
+    void runModuleMenu() {
+        int choice = 0;
+        do {
+            cout << "\n==================================================\n";
+            cout << " VELORENT - MODULE 3: AVL SEARCH & COMPRESSED LOGS\n";
+            cout << "==================================================\n";
+            cout << "1. View AVL-Sorted Vehicle Inventory\n";
+            cout << "2. O(log N) Price Range Search (AVL Tree)\n";
+            cout << "3. Compress & Archive a Rental Receipt (Huffman)\n";
+            cout << "4. Decompose & View Archived Receipts\n";
+            cout << "5. Return to Main Program\n";
+            cout << "==================================================\n";
+            cout << "Enter your choice (1-5): ";
+            
+            if (!(cin >> choice)) {
+                cout << "[Error]: Invalid input. Please enter a number.\n";
+                cin.clear();
+                cin.ignore(10000, '\n');
+                continue;
+            }
+
+            switch (choice) {
+                case 1: {
+                    // Rebuild tree in case availability status changed
+                    avlTree.buildTree(sharedInventory, inventorySize);
+                    Vehicle sortedResults[50];
+                    int totalFound = avlTree.getAllSorted(sortedResults, 50);
+
+                    cout << "\n-----------------------------------------------------------------------\n";
+                    cout << left << setw(14) << "Vehicle ID" 
+                              << setw(26) << "Vehicle Name" 
+                              << setw(12) << "Type" 
+                              << setw(12) << "Price/Hr" 
+                              << "Status\n";
+                    cout << "-----------------------------------------------------------------------\n";
+                    for (int i = 0; i < totalFound; ++i) {
+                        cout << left << setw(14) << sortedResults[i].vehicleID 
+                                  << setw(26) << sortedResults[i].name 
+                                  << setw(12) << sortedResults[i].type 
+                                  << "Rs. " << setw(8) << sortedResults[i].pricePerHour 
+                                  << (sortedResults[i].isAvailable ? "Available" : "Rented") << "\n";
+                    }
+                    cout << "-----------------------------------------------------------------------\n";
+                    break;
+                }
+                case 2: {
+                    double minP, maxP;
+                    cout << "\n--- AVL PRICE RANGE FILTER ---\n";
+                    cout << "Enter minimum price per hour (Rs.): ";
+                    cin >> minP;
+                    cout << "Enter maximum price per hour (Rs.): ";
+                    cin >> maxP;
+
+                    if (minP > maxP) {
+                        cout << "[Error]: Minimum price cannot be greater than maximum price!\n";
+                        break;
+                    }
+
+                    avlTree.buildTree(sharedInventory, inventorySize);
+                    Vehicle results[50];
+                    int foundCount = avlTree.searchRange(minP, maxP, results, 50);
+
+                    cout << "\nFound " << foundCount << " vehicle(s) in range Rs. " << minP << " - Rs. " << maxP << ":\n";
+                    
+                    if (foundCount > 0) {
+                        cout << "-------------------------------------------------------------------\n";
+                        cout << left << setw(14) << "Vehicle ID" << setw(26) << "Name" << setw(12) << "Type" << "Price/Hr\n";
+                        cout << "-------------------------------------------------------------------\n";
+                        for (int i = 0; i < foundCount; ++i) {
+                            cout << left << setw(14) << results[i].vehicleID 
+                                      << setw(26) << results[i].name 
+                                      << setw(12) << results[i].type
+                                      << "Rs. " << results[i].pricePerHour << "\n";
+                        }
+                        cout << "-------------------------------------------------------------------\n";
+                    }
+                    break;
+                }
+                case 3: {
+                    string vID, userName;
+                    int hours;
+                    cout << "\n--- HUFFMAN RECEIPT COMPRESSION ---\n";
+                    cout << "Enter Vehicle ID rented (e.g., UK07-PA-1011): ";
+                    cin >> vID;
+                    cout << "Enter Customer Name: ";
+                    cin >> ws; // clear leading whitespace/newlines
+                    getline(cin, userName); // supports spaces in names
+                    cout << "Enter Rental Duration (Hours): ";
+                    cin >> hours;
+
+                    double rate = 150.0;
+                    bool vehicleFound = false;
+                    for (int i = 0; i < inventorySize; ++i) {
+                        if (sharedInventory[i].vehicleID == vID) {
+                            rate = sharedInventory[i].pricePerHour;
+                            sharedInventory[i].isAvailable = false; // Mark as rented
+                            vehicleFound = true;
+                            break;
+                        }
+                    }
+
+                    if (!vehicleFound) {
+                        cout << "[Warning]: Vehicle ID not found, using default rate.\n";
+                    }
+
+                    double total = rate * hours;
+
+                    stringstream ss;
+                    ss << "RENTAL|ID:" << vID << "|Cust:" << userName << "|Hrs:" << hours << "|Tot:Rs" << total;
+                    string rawReceipt = ss.str();
+
+                    unordered_map<char, string> codes;
+                    string compressedBitStream = compressor.compressText(rawReceipt, codes);
+
+                    // Build reverse code map for decompression
+                    unordered_map<string, char> reverseCodes;
+                    for (auto pair : codes) {
+                        reverseCodes[pair.second] = pair.first;
+                    }
+
+                    size_t originalSize = rawReceipt.size() * 8;
+                    size_t compressedSize = compressedBitStream.size();
+                    double savings = originalSize > 0 ? (1.0 - (double)compressedSize / originalSize) * 100.0 : 0.0;
+
+                    cout << "\n[Original Receipt]     : " << rawReceipt << "\n";
+                    cout << "Original Size          : " << originalSize << " bits\n";
+                    cout << "Compressed Bit-Stream  : " << compressedBitStream << "\n";
+                    cout << "Compressed Size        : " << compressedSize << " bits\n";
+                    cout << "Space Saved            : " << fixed << setprecision(1) << savings << "%\n";
+
+                    if (archiveCount < 50) {
+                        archivedReceipts[archiveCount].compressedBits = compressedBitStream;
+                        archivedReceipts[archiveCount].reverseCodes = reverseCodes;
+                        archivedReceipts[archiveCount].originalPreview = rawReceipt;
+                        archiveCount++;
+                        cout << "[Success]: Receipt compressed and saved to secure AVL-backed archive!\n";
+                    } else {
+                        cout << "[Error]: Archive storage is full!\n";
+                    }
+                    break;
+                }
+                case 4: {
+                    cout << "\n--- ARCHIVED LOGS DECOMPRESSION (HUFFMAN) ---\n";
+                    if (archiveCount == 0) {
+                        cout << "No archived receipts found yet. Compress a receipt first (Option 3).\n";
+                        break;
+                    }
+
+                    for (int i = 0; i < archiveCount; ++i) {
+                        cout << "\n----------------------------------------------------\n";
+                        cout << "[Archive Record Index #" << (i + 1) << "]\n";
+                        cout << "Compressed Bits  : " << archivedReceipts[i].compressedBits << "\n";
+
+                        // Real Huffman Decompression logic
+                        string decodedText = "";
+                        string currentBits = "";
+                        for (char bit : archivedReceipts[i].compressedBits) {
+                            currentBits += bit;
+                            if (archivedReceipts[i].reverseCodes.find(currentBits) != archivedReceipts[i].reverseCodes.end()) {
+                                decodedText += archivedReceipts[i].reverseCodes[currentBits];
+                                currentBits = ""; // reset for next character
+                            }
+                        }
+
+                        cout << "Decompressed Text: " << decodedText << "\n";
+                        cout << "----------------------------------------------------\n";
+                    }
+                    break;
+                }
+                case 5:
+                    cout << "Exiting Module 3...\n";
+                    break;
+                default:
+                    cout << "[Error]: Invalid choice. Please select between 1 and 5.\n";
+            }
+        } while (choice != 5);
+    }
+};
+
+
+// ==========================================
+// 6. MAIN DRIVER (For testing Module 3 standalone)
+// ==========================================
+int main() {
+    const int MAX_CAPACITY = 50;
+    Vehicle masterInventory[MAX_CAPACITY] = {
+        {"UK07-PA-1011", "Royal Enfield Hunter 350", "Bike", 150.0, true},
+        {"UK07-CH-2022", "KTM Duke 200", "Bike", 200.0, true},
+        {"UP32-TN-3033", "Mahindra Thar", "Car", 600.0, true},
+        {"DL01-SC-4044", "Activa 6G", "Scooter", 80.0, false},
+        {"UK07-HM-5055", "Royal Enfield Himalayan", "Bike", 250.0, true},
+        {"AS01-EV-6066", "Ola S1 Pro", "Scooter", 100.0, true},
+        {"HR26-TF-7077", "Toyota Fortuner", "Car", 1200.0, true},
+        {"UK07-MT-8088", "Yamaha MT-15", "Bike", 180.0, true},
+        {"UP32-NS-9099", "Bajaj Pulsar NS200", "Bike", 130.0, true},
+        {"AS01-AP-1111", "TVS Apache RTR 160", "Bike", 120.0, true},
+        {"HR26-CB-2222", "Honda CB350", "Bike", 220.0, false},
+        {"DL01-SA-3333", "Suzuki Access 125", "Scooter", 90.0, true},
+        {"MH12-NX-4444", "Tata Nexon EV", "Car", 500.0, true}
+    };
+    
+    int inventorySize = 13;
+
+    Module3Controller module3(masterInventory, inventorySize);
+    module3.runModuleMenu();
+
+    return 0;
+}
