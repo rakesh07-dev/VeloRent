@@ -15,3 +15,4 @@ test_ledger.bin
 *.layout
 bin/
 obj/
+*.exe
