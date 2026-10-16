@@ -1,8 +1,6 @@
 # build output
 velorent
 velorent.exe
-tests/run_tests
-tests/run_tests.exe
 *.o
 
 # runtime data
