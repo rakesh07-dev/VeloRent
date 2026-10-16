@@ -1,16 +1,21 @@
-# build output
+# Build output
 velorent
 velorent.exe
+*.exe
 *.o
+*.obj
+bin/
+obj/
 
-# runtime data
+# Runtime data
 ledger.bin
 test_ledger.bin
 
-# editor folders
+# Editor folders and files
 .vscode/
 *.cbp
 *.layout
-bin/
-obj/
-*.exe
+
+# Precompiled headers
+*.gch
+*.pch
