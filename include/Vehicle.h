@@ -1,3 +1,178 @@
+#include <iostream>
+#include <string>
+using namespace std;
+const int MAX = 100;
+class Vehicle
+{
+protected:
+    string vin;
+    string licensePlate;
+    string brand;
+    double baseRate;
+    string status;
+public:
+    Vehicle(string v, string plate, string b, double rate)
+    {
+        vin = v;
+        licensePlate = plate;
+        brand = b;
+        baseRate = rate;
+        status = "Available";
+    }
+    virtual ~Vehicle() {}
+    string getVIN() const
+    {
+        return vin;
+    }
+    string getLicensePlate() const
+    {
+        return licensePlate;
+    }
+    string getBrand() const
+    {
+        return brand;
+    }
+    double getBaseRate() const
+    {
+        return baseRate;
+    }
+    string getStatus() const
+    {
+        return status;
+    }
+    void setStatus(string s)
+    {
+        status = s;
+    }
+    bool isAvailable() const
+    {
+        return status == "Available";
+    }
+    bool operator>(const Vehicle& other) const
+    {
+        return baseRate > other.baseRate;
+    }
+    virtual double calculateTariff(int days) const = 0;
+    virtual void inspectMaintenance() const = 0;
+    virtual void display() const
+    {
+        cout << "VIN: " << vin << endl;
+        cout << "License Plate: " << licensePlate << endl;
+        cout << "Brand: " << brand << endl;
+        cout << "Base Rate: " << baseRate << endl;
+        cout << "Status: " << status << endl;
+    }
+};
+class Car : public Vehicle
+{
+public:
+    Car(string v, string plate, string b, double rate)
+        : Vehicle(v, plate, b, rate)
+    {
+    }
+
+    double calculateTariff(int days) const override
+    {
+        return baseRate * days;
+    }
+
+    void inspectMaintenance() const override
+    {
+        cout << "Car maintenance checked." << endl;
+    }
+
+    void display() const override
+    {
+        Vehicle::display();
+        cout << "Type: Car" << endl;
+    }
+};
+class Bike : public Vehicle
+{
+public:
+    Bike(string v, string plate, string b, double rate)
+        : Vehicle(v, plate, b, rate)
+    {
+    }
+    double calculateTariff(int days) const override
+    {
+        return baseRate * days;
+    }
+    void inspectMaintenance() const override
+    {
+        cout << "Bike maintenance checked." << endl;
+    }
+    void display() const override
+    {
+        Vehicle::display();
+        cout << "Type: Bike" << endl;
+    }
+};
+class ElectricVehicle : public Vehicle
+{
+public:
+    ElectricVehicle(string v, string plate, string b, double rate)
+        : Vehicle(v, plate, b, rate)
+    {
+    }
+
+    double calculateTariff(int days) const override
+    {
+        return baseRate * days * 0.95;
+    }
+
+    void inspectMaintenance() const override
+    {
+        cout << "Battery and electrical system checked." << endl;
+    }
+
+    void display() const override
+    {
+        Vehicle::display();
+        cout << "Type: Electric Vehicle" << endl;
+    }
+};
+void merge(Vehicle* arr[], int left, int mid, int right)
+{
+    Vehicle* temp[MAX];
+    int i = left;
+    int j = mid + 1;
+    int k = 0;
+    while (i <= mid && j <= right)
+    {
+        if (arr[i]->getVIN() <= arr[j]->getVIN())
+            temp[k++] = arr[i++];
+        else
+            temp[k++] = arr[j++];
+    }
+    while (i <= mid)
+        temp[k++] = arr[i++];
+    while (j <= right)
+        temp[k++] = arr[j++];
+    for (int x = 0; x < k; x++)
+        arr[left + x] = temp[x];
+}
+void mergeSort(Vehicle* arr[], int left, int right)
+{
+    if (left >= right)
+        return;
+    int mid = left + (right - left) / 2;
+    mergeSort(arr, left, mid);
+    mergeSort(arr, mid + 1, right);
+    merge(arr, left, mid, right);
+}
+int binarySearch(Vehicle* arr[], int left, int right, string key)
+{
+    if (left > right)
+        return -1;
+    int mid = left + (right - left) / 2;
+    if (arr[mid]->getVIN() == key)
+        return mid;
+    if (key < arr[mid]->getVIN())
+        return binarySearch(arr, left, mid - 1, key);
+    return binarySearch(arr, mid + 1, right, key);
+}
+
 int main()
 {
     Vehicle* vehicles[MAX];

@@ -1,16 +1,4 @@
-// HubGraph.h  -- MODULE 2: Graph & Routing   (STANDALONE FILE)
-// Owner: Rakesh Kumar Sanwal
-//
-// This file is self-contained: it needs no other VeloRent file, and it has its own main().
-//
-// HOW TO BUILD AND RUN (from the folder that contains the include folder):
-//     g++ -std=c++17 -x c++ include/HubGraph.h -o hubgraph.exe
-//     hubgraph.exe
-//
-// NOTE: the "-x c++" part is REQUIRED. Without it, g++ treats a .h file as a header
-// and builds a "precompiled header" instead of a program (the .exe will not run).
-// Alternative: copy this file to HubGraph.cpp and run  g++ -std=c++17 HubGraph.cpp -o hubgraph.exe
-//
+
 // Topics covered:
 //   DSA : graphs (adjacency list), Dijkstra's shortest path (priority queue),
 //         Floyd-Warshall (all-pairs shortest path), Kruskal's Minimum Spanning
