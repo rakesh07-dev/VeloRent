@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "Exceptions.h"
+using namespace std;
 
 // ---------------------------------------------------------------------------
 // One entry of the price index: (daily rate, VIN). The AVL tree sorts these.
@@ -27,16 +28,16 @@
 // ---------------------------------------------------------------------------
 struct RateEntry {
     double rate;
-    std::string vin;
+    string vin;
 
-    bool operator<(const RateEntry& o) const {
-        return rate < o.rate || (rate == o.rate && vin < o.vin);
+    bool operator<(const RateEntry& other) const {
+        return rate < other.rate || (rate == other.rate && vin < other.vin);
     }
-    bool operator>(const RateEntry& o) const { return o < *this; }
-    bool operator==(const RateEntry& o) const { return rate == o.rate && vin == o.vin; }
+    bool operator>(const RateEntry& other) const { return other < *this; }
+    bool operator==(const RateEntry& other) const { return rate == other.rate && vin == other.vin; }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const RateEntry& e) {
+inline ostream& operator<<(ostream& os, const RateEntry& e) {
     return os << "Rs." << e.rate << " (" << e.vin << ")";
 }
 
@@ -56,11 +57,11 @@ class AVLTree {
     };
 
     Node* root_ = nullptr;
-    std::size_t size_ = 0;
+    size_t size_ = 0;
 
-    static int h(const Node* n) { return n ? n->height : 0; }
-    static void update(Node* n) { n->height = 1 + std::max(h(n->left), h(n->right)); }
-    static int balanceFactor(const Node* n) { return n ? h(n->left) - h(n->right) : 0; }
+    static int heightOf(const Node* n) { return n ? n->height : 0; }
+    static void update(Node* n) { n->height = 1 + max(heightOf(n->left), heightOf(n->right)); }
+    static int balanceFactor(const Node* n) { return n ? heightOf(n->left) - heightOf(n->right) : 0; }
 
     // Right rotation (left rotation is the mirror image):
     //   before: y has left child x;  x has subtrees A (left) and B (right); y has right subtree C
@@ -96,46 +97,66 @@ class AVLTree {
             return n;                                   // duplicate: ignore
 
         update(n);
-        int bf = balanceFactor(n);
-        if (bf > 1 && key < n->left->key) return rotateRight(n);          // Left-Left
-        if (bf < -1 && n->right->key < key) return rotateLeft(n);         // Right-Right
-        if (bf > 1 && n->left->key < key) {                               // Left-Right
+        int balance = balanceFactor(n);
+        if (balance > 1 && key < n->left->key) {
+            return rotateRight(n);
+            // Left-Left
+        }
+        if (balance < -1 && n->right->key < key) {
+            return rotateLeft(n);
+            // Right-Right
+        }
+        if (balance > 1 && n->left->key < key) {                               // Left-Right
             n->left = rotateLeft(n->left);
             return rotateRight(n);
         }
-        if (bf < -1 && key < n->right->key) {                             // Right-Left
+        if (balance < -1 && key < n->right->key) {                             // Right-Left
             n->right = rotateRight(n->right);
             return rotateLeft(n);
         }
         return n;
     }
 
-    static void inorder(const Node* n, std::vector<T>& out) {
-        if (!n) return;
+    static void inorder(const Node* n, vector<T>& out) {
+        if (!n) {
+            return;
+        }
         inorder(n->left, out);
         out.push_back(n->key);
         inorder(n->right, out);
     }
 
     // Collects every key k with lo <= k <= hi, skipping subtrees that cannot match.
-    static void range(const Node* n, const T& lo, const T& hi, std::vector<T>& out) {
-        if (!n) return;
-        if (lo < n->key) range(n->left, lo, hi, out);
-        if (!(n->key < lo) && !(hi < n->key)) out.push_back(n->key);
-        if (n->key < hi) range(n->right, lo, hi, out);
+    static void range(const Node* n, const T& lo, const T& hi, vector<T>& out) {
+        if (!n) {
+            return;
+        }
+        if (lo < n->key) {
+            range(n->left, lo, hi, out);
+        }
+        if (!(n->key < lo) && !(hi < n->key)) {
+            out.push_back(n->key);
+        }
+        if (n->key < hi) {
+            range(n->right, lo, hi, out);
+        }
     }
 
     static void destroy(Node* n) {
-        if (!n) return;
+        if (!n) {
+            return;
+        }
         destroy(n->left);
         destroy(n->right);
         delete n;
     }
 
-    static void printTree(const Node* n, int depth, std::ostream& os) {
-        if (!n) return;
+    static void printTree(const Node* n, int depth, ostream& os) {
+        if (!n) {
+            return;
+        }
         printTree(n->right, depth + 1, os);
-        os << std::string(static_cast<std::size_t>(depth) * 6, ' ') << n->key << "\n";
+        os << string(static_cast<size_t>(depth) * 6, ' ') << n->key << "\n";
         printTree(n->left, depth + 1, os);
     }
 
@@ -148,58 +169,74 @@ public:
     bool insert(const T& key) {
         bool inserted = false;
         root_ = insert(root_, key, inserted);
-        if (inserted) ++size_;
+        if (inserted) {
+            ++size_;
+        }
         return inserted;
     }
 
     bool contains(const T& key) const {
         const Node* n = root_;
         while (n) {
-            if (key < n->key) n = n->left;
-            else if (n->key < key) n = n->right;
+            if (key < n->key) {
+                n = n->left;
+            }
+            else if (n->key < key) {
+                n = n->right;
+            }
             else return true;
         }
         return false;
     }
 
     const T& findMin() const {
-        if (!root_) throw NotFoundException("Tree is empty");
+        if (!root_) {
+            throw NotFoundException("Tree is empty");
+        }
         const Node* n = root_;
-        while (n->left) n = n->left;
+        while (n->left) {
+            n = n->left;
+        }
         return n->key;
     }
 
     const T& findMax() const {
-        if (!root_) throw NotFoundException("Tree is empty");
+        if (!root_) {
+            throw NotFoundException("Tree is empty");
+        }
         const Node* n = root_;
-        while (n->right) n = n->right;
+        while (n->right) {
+            n = n->right;
+        }
         return n->key;
     }
 
-    std::vector<T> inorder() const {
-        std::vector<T> out;
+    vector<T> inorder() const {
+        vector<T> out;
         inorder(root_, out);
         return out;
     }
 
-    std::vector<T> rangeQuery(const T& lo, const T& hi) const {
-        std::vector<T> out;
+    vector<T> rangeQuery(const T& lo, const T& hi) const {
+        vector<T> out;
         range(root_, lo, hi, out);
         return out;
     }
 
-    int height() const { return h(root_); }
-    std::size_t size() const { return size_; }
+    int height() const { return heightOf(root_); }
+    size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
-    void print(std::ostream& os = std::cout) const { printTree(root_, 0, os); }
+    void print(ostream& os = cout) const { printTree(root_, 0, os); }
 };
 
 // Convenience: all vehicles with  minRate <= rate <= maxRate
-inline std::vector<RateEntry> rangeByRate(const AVLTree<RateEntry>& tree, double minRate,
+inline vector<RateEntry> rangeByRate(const AVLTree<RateEntry>& tree, double minRate,
                                           double maxRate) {
-    if (minRate > maxRate) throw InvalidInputException("minRate cannot exceed maxRate");
+    if (minRate > maxRate) {
+        throw InvalidInputException("minRate cannot exceed maxRate");
+    }
     // "\x7f" is bigger than any normal VIN, so it acts as +infinity for the VIN tie-break.
-    return tree.rangeQuery(RateEntry{minRate, ""}, RateEntry{maxRate, std::string(1, '\x7f')});
+    return tree.rangeQuery(RateEntry{minRate, ""}, RateEntry{maxRate, string(1, '\x7f')});
 }
 
 // ---------------------------------------------------------------------------
@@ -217,23 +254,29 @@ class HuffmanCoder {
     };
     struct Cmp {                       // min-heap on frequency
         bool operator()(const HNode* a, const HNode* b) const {
-            if (a->freq != b->freq) return a->freq > b->freq;
+            if (a->freq != b->freq) {
+                return a->freq > b->freq;
+            }
             return a->order > b->order;
         }
     };
 
     HNode* root_ = nullptr;
-    std::unordered_map<char, std::string> codes_;
+    unordered_map<char, string> codes_;
 
     static void destroy(HNode* n) {
-        if (!n) return;
+        if (!n) {
+            return;
+        }
         destroy(n->left);
         destroy(n->right);
         delete n;
     }
 
-    void assign(const HNode* n, const std::string& prefix) {
-        if (!n) return;
+    void assign(const HNode* n, const string& prefix) {
+        if (!n) {
+            return;
+        }
         if (!n->left && !n->right) {                    // leaf = a real character
             codes_[n->ch] = prefix.empty() ? "0" : prefix;
             return;
@@ -248,18 +291,24 @@ public:
     HuffmanCoder& operator=(const HuffmanCoder&) = delete;
     ~HuffmanCoder() { destroy(root_); }
 
-    void build(const std::string& text) {
-        if (text.empty()) throw InvalidInputException("Cannot build Huffman tree for empty text");
+    void build(const string& text) {
+        if (text.empty()) {
+            throw InvalidInputException("Cannot build Huffman tree for empty text");
+        }
         destroy(root_);
         root_ = nullptr;
         codes_.clear();
 
-        std::map<char, int> freq;                       // ordered map -> deterministic
-        for (char c : text) ++freq[c];
+        map<char, int> freq;                       // ordered map -> deterministic
+        for (char c : text) {
+            ++freq[c];
+        }
 
-        std::priority_queue<HNode*, std::vector<HNode*>, Cmp> pq;
+        priority_queue<HNode*, vector<HNode*>, Cmp> pq;
         int order = 0;
-        for (const auto& kv : freq) pq.push(new HNode{kv.first, kv.second, order++, nullptr, nullptr});
+        for (const auto& kv : freq) {
+            pq.push(new HNode{kv.first, kv.second, order++, nullptr, nullptr});
+        }
 
         while (pq.size() > 1) {                         // merge two rarest nodes
             HNode* a = pq.top(); pq.pop();
@@ -270,27 +319,35 @@ public:
         assign(root_, "");
     }
 
-    std::string encode(const std::string& text) const {
-        if (!root_) throw InvalidInputException("Call build() first");
-        std::string bits;
+    string encode(const string& text) const {
+        if (!root_) {
+            throw InvalidInputException("Call build() first");
+        }
+        string bits;
         for (char c : text) {
             auto it = codes_.find(c);
-            if (it == codes_.end()) throw InvalidInputException("Character not in Huffman tree");
+            if (it == codes_.end()) {
+                throw InvalidInputException("Character not in Huffman tree");
+            }
             bits += it->second;
         }
         return bits;
     }
 
-    std::string decode(const std::string& bits) const {
-        if (!root_) throw InvalidInputException("Call build() first");
-        std::string out;
+    string decode(const string& bits) const {
+        if (!root_) {
+            throw InvalidInputException("Call build() first");
+        }
+        string out;
         if (!root_->left && !root_->right) {            // only one distinct character
             out.assign(bits.size(), root_->ch);
             return out;
         }
         const HNode* cur = root_;
         for (char b : bits) {
-            if (b != '0' && b != '1') throw InvalidInputException("Bits must be 0 or 1");
+            if (b != '0' && b != '1') {
+                throw InvalidInputException("Bits must be 0 or 1");
+            }
             cur = (b == '0') ? cur->left : cur->right;
             if (!cur->left && !cur->right) {            // reached a leaf
                 out += cur->ch;
@@ -300,24 +357,24 @@ public:
         return out;
     }
 
-    const std::unordered_map<char, std::string>& codes() const { return codes_; }
+    const unordered_map<char, string>& codes() const { return codes_; }
 
-    void printCodes(std::ostream& os = std::cout) const {
-        std::vector<std::pair<char, std::string>> v(codes_.begin(), codes_.end());
-        std::sort(v.begin(), v.end(), [](const auto& a, const auto& b) {
+    void printCodes(ostream& os = cout) const {
+        vector<pair<char, string>> v(codes_.begin(), codes_.end());
+        sort(v.begin(), v.end(), [](const auto& a, const auto& b) {
             return a.second.size() != b.second.size() ? a.second.size() < b.second.size()
                                                       : a.first < b.first;
         });
         for (const auto& kv : v) {
             const char c = kv.first;
-            const std::string& code = kv.second;
-            os << "  '" << (c == ' ' ? std::string("space") : (c == '\n' ? std::string("\\n") : std::string(1, c)))
+            const string& code = kv.second;
+            os << "  '" << (c == ' ' ? string("space") : (c == '\n' ? string("\\n") : string(1, c)))
                << "' -> " << code << "\n";
         }
     }
 
     // compressed bits / original bits (8 bits per char); smaller is better
-    double compressionRatio(const std::string& text) const {
+    double compressionRatio(const string& text) const {
         return static_cast<double>(encode(text).size()) / (8.0 * static_cast<double>(text.size()));
     }
 };

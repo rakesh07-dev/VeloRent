@@ -5,12 +5,13 @@
 
 #include <stdexcept>
 #include <string>
+using namespace std;
 
 // Base class: everything VeloRent throws derives from this, so main()
 // can catch (const VeloException&) once and print a clean message.
-class VeloException : public std::runtime_error {
+class VeloException : public runtime_error {
 public:
-    using std::runtime_error::runtime_error;
+    using runtime_error::runtime_error;
 };
 
 class DuplicateKeyException : public VeloException {   // e.g. same VIN added twice

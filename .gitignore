@@ -1,17 +1,16 @@
-# build output
-velorent
-velorent.exe
-tests/run_tests
-tests/run_tests.exe
+﻿# Compiled C++ binaries and runtime data
+*.exe
 *.o
-
-# runtime data
+*.out
+velorent
+velorent_api
+tests/run_tests
 ledger.bin
 test_ledger.bin
 
-# editor folders
-.vscode/
-*.cbp
-*.layout
-bin/
-obj/
+# Node.js and React build folders
+node_modules/
+server/node_modules/
+web/node_modules/
+web/dist/
+.vite/

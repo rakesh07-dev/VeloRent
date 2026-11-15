@@ -1,0 +1,14 @@
+{
+  "name": "velorent-bridge",
+  "version": "1.0.0",
+  "description": "HTTP/JSON bridge between VeloRent React frontend and C++14 velorent_api process",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node check.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
