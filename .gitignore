@@ -14,3 +14,8 @@ server/node_modules/
 web/node_modules/
 web/dist/
 .vite/
+
+# Local editor and launcher files
+.vscode/
+docs/
+run_velorent.bat
