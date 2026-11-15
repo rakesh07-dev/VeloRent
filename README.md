@@ -6,7 +6,7 @@
 Combined PBL: **TCS302 Data Structures** + **TCS307 Object-Oriented Programming with C++**
 Repository: https://github.com/rakesh07-dev/VeloRent
 
-> **Phase 3 status:** the four modules are joined in one console menu (`src/main.cpp`) and covered by 91 automated checks.
+> **Phase 3 status:** the four modules are joined in one console menu (`src/main.cpp`) and covered by 91 automated checks. An optional web dashboard (`web/`) talks to the same C++ code through a small Node.js bridge (`server/`).
 > Remaining gaps are listed honestly in [Current Implementation Status](#18-current-implementation-status).
 
 VeloRent is a console-based vehicle rental system built to apply Data Structures (TCS302) and OOP in C++ (TCS307) on one realistic problem.
@@ -17,7 +17,9 @@ VeloRent is a console-based vehicle rental system built to apply Data Structures
 
 VeloRent models a multi-city vehicle rental company. A customer can browse the fleet, find a vehicle, pick pickup and drop hubs, get the cheapest route and the drop-off charge, and make a booking. VIP bookings are served first, the last booking can be undone, and confirmed bookings are saved to a file.
 
-It is a **C++14 console application**. There is no GUI, no database and no third-party library. Most data structures (hash table, AVL tree, heap, linked-list queue and stack, Huffman tree) are written by hand; the STL is used for `vector`, `unordered_map`, `priority_queue` and `sort` in the graph and Huffman code.
+The core is a **C++14 console application** with no database and no third-party library. Most data structures (hash table, AVL tree, heap, linked-list queue and stack, Huffman tree) are written by hand; the STL is used for `vector`, `unordered_map`, `priority_queue` and `sort` in the graph and Huffman code.
+
+An **optional web dashboard** sits on top of the same C++ code. It does not re-implement any logic: a Node.js (Express) bridge in `server/` starts a second C++ program, `velorent_api` (`src/api_main.cpp`), which reuses the same headers and talks to the bridge with one command per line and one JSON reply per line. The web part uses npm packages (Express, CORS, and a React front end in `web/`); the C++ part does not.
 
 ## 3. Key Features
 
@@ -30,6 +32,8 @@ It is a **C++14 console application**. There is no GUI, no database and no third
 - Bookings saved in a binary file (`ledger.bin`).
 - Huffman compression of receipt text.
 - Custom exception hierarchy and input validation for handling invalid user input and file errors.
+- A vehicle that is already booked cannot be confirmed a second time.
+- Optional web dashboard connected to the C++ code (JSON API program `velorent_api` + Node.js bridge).
 
 ## 4. System Workflow
 
@@ -56,7 +60,8 @@ flowchart TD
 | Language | C++14 (`g++ -std=c++14`) |
 | Tested compilers | GCC 13 (Linux) for the Phase 3 build. Project written for MinGW GCC 6.3 on Windows; **rebuild on that machine before the demo**. |
 | Tools | VS Code, Git/GitHub, Makefile (optional) |
-| Libraries | C++ standard library only |
+| Libraries | C++ core: C++ standard library only |
+| Optional web layer | Node.js with Express and CORS (`server/`), React front end (`web/`) |
 
 ## 6. System Architecture
 
@@ -69,6 +74,16 @@ flowchart LR
     V & G & R & B --> X[Exceptions.h]
 ```
 
+Optional web dashboard (the C++ modules above stay the single source of truth):
+
+```mermaid
+flowchart LR
+    W[web/ React dashboard] -->|HTTP JSON| S[server/index.js Node.js bridge]
+    S -->|one command per line| A[src/api_main.cpp velorent_api]
+    A --> M[same C++ headers as the console app]
+    A --> L[(ledger.bin)]
+```
+
 ## 7. Module Description
 
 | Module | Owner | File | Contents |
@@ -78,6 +93,7 @@ flowchart LR
 | 3 Search and Trees | Brijesh Gaur | `include/RateTree.h` | `AVLTree<T>`, `RateEntry`, range search, `HuffmanCoder` |
 | 4 Bookings | Tianshu Aswal | `include/Booking.h`, `include/Exceptions.h` | `BookingHeap`, `BookingQueue`, `UndoStack`, `BookingManager`, `Ledger`, `FileGuard` (RAII), exceptions |
 | Integration | Team | `src/main.cpp`, `tests/tests.cpp` | Unified menu and test suite |
+| Web layer (optional) | Team | `src/api_main.cpp`, `server/index.js`, `server/check.js`, `web/` | JSON API program, Node.js bridge, end-to-end checks, dashboard |
 
 ## 8. Data Structures and Algorithms
 
@@ -111,19 +127,26 @@ VeloRent/
 │   ├── HubGraph.h     Module 2
 │   ├── RateTree.h     Module 3
 │   └── Booking.h      Module 4
-├── docs/
-│   └── ui-prototype/index.html   dashboard UI prototype (not part of the build)
-├── src/main.cpp       integrated menu
+├── src/
+│   ├── main.cpp       integrated console menu
+│   └── api_main.cpp   JSON command program used by the web dashboard
 ├── tests/tests.cpp    self-checking tests
+├── server/
+│   ├── index.js       Node.js (Express) bridge to velorent_api
+│   └── check.js       end-to-end checks of the JSON API
+├── web/               web dashboard source
 ├── Makefile
 ├── .gitignore
 └── README.md
 ```
 
+Build outputs (`velorent`, `velorent_api`, `web/dist`, `node_modules`, `ledger.bin`) are not committed.
+
 ## 10. Prerequisites
 
 - A C++14 compiler (`g++`; MinGW on Windows is fine) and Git.
 - `make` is optional.
+- Node.js and npm, only for the optional web dashboard.
 
 ## 11. Installation and Setup
 
@@ -154,7 +177,18 @@ g++ -std=c++14 -Iinclude tests/tests.cpp -o run_tests
 ./run_tests
 ```
 
-With `make`: `make`, `make test`, `make clean`. Run from the project folder, because `ledger.bin` is created in the current directory.
+With `make`: `make` (builds `velorent` and `velorent_api`), `make api` (only `velorent_api`), `make test`, `make clean`. Run from the project folder, because `ledger.bin` is created in the current directory.
+
+### Optional web dashboard
+
+1. Build the JSON API program from the project folder (Windows PowerShell with MinGW):
+   ```powershell
+   g++ -std=c++14 -Iinclude src/api_main.cpp -o velorent_api.exe
+   ```
+   On Linux / macOS: `g++ -std=c++14 -Iinclude src/api_main.cpp -o velorent_api`.
+2. Install the npm packages listed in the `package.json` files of `server/` and `web/`, and build the web app so that `web/dist` exists.
+3. Start the bridge with `node server/index.js` and open `http://localhost:3001` (the port can be changed with the `PORT` environment variable). The bridge starts `velorent_api` itself and serves `web/dist` when it exists.
+4. Optional end-to-end check of the C++ JSON API: `node server/check.js`. It needs `velorent_api` to be built, uses only Node's built-in modules, and **deletes `ledger.bin` before and after the run**.
 
 ## 13. Application Usage
 
@@ -178,6 +212,21 @@ With `make`: `make`, `make test`, `make clean`. Run from the project folder, bec
 
 Example from the built-in data: the cheapest route Dehradun to Delhi (Dehradun, Haridwar, Roorkee, Delhi) is 261 km; the one-way charge is Rs.200 + 12 x 261 = Rs.3332.
 
+**Web bridge endpoints** (`server/index.js`; each one sends a single command to `velorent_api`):
+
+| Endpoint | Command sent to C++ |
+|---|---|
+| `GET /api/health` | `PING` |
+| `GET /api/vehicles` (optional `?min=&max=`) | `VEHICLES` or `RANGE` |
+| `GET /api/vehicles/:key`, `GET /api/quote?vin=&days=` | `VEHICLE`, `QUOTE` |
+| `GET /api/hubs`, `GET /api/route?from=&to=&mode=` | `HUBS`, `ROUTE` (`same`, `oneway`, `peak`) |
+| `GET /api/network?algo=kruskal\|prim` | `MST`, `MST_PRIM` |
+| `GET /api/reach?hub=`, `GET /api/bellman-ford?hub=` | `REACH`, `BF` |
+| `GET /api/bookings`, `POST /api/bookings` | `LEDGER`, `BOOK` |
+| `POST /api/bookings/process`, `POST /api/bookings/undo` | `PROCESS`, `UNDO` |
+| `GET /api/huffman`, `GET /api/inspect` | `HUFFMAN`, `INSPECT` |
+| `POST /api/restart` | restarts `velorent_api` |
+
 ## 14. File Handling and Data Persistence
 
 | File | Stores | When written |
@@ -189,11 +238,14 @@ Example from the built-in data: the cheapest route Dehradun to Delhi (Dehradun, 
 - **Corrupted or half-written last record:** the incomplete record is skipped on load.
 - **Errors:** an unwritable path throws `FileIOException`. Files are closed automatically through the RAII class `FileGuard`.
 - **Not persisted:** the vehicle list (so any other status change, such as maintenance), hubs, pending booking requests, the undo history and Huffman receipts are rebuilt or lost on every restart. Only confirmed bookings survive, and their vehicles are re-marked `Booked` at startup.
+- **Web path:** `velorent_api` uses the same `ledger.bin` and the same recovery rules as the console menu.
 - **Undo scope:** undo works on bookings confirmed in the current session. After a restart, recovered bookings cannot be undone. An undo rewrites `ledger.bin` with the remaining confirmed bookings, including those recovered from earlier sessions.
 
 ## 15. Testing and Validation
 
 `tests/tests.cpp` has self-checking tests for all four modules and prints `[PASS]` or `[FAIL]` for each. Result of the Phase 3 build on GCC 13, C++14: **Passed: 91, Failed: 0**. Not yet run on MinGW 6.3.
+
+`server/check.js` adds **14 end-to-end checks** through the real `velorent_api` program: route distances and charges for the three pricing modes, directed routes, Kruskal and Prim totals, a booking quote, VIP-before-regular processing, undo, recovery of `ledger.bin` after a restart, and structured errors for invalid input. The web front end itself has no automated tests.
 
 Examples: Dijkstra picks the cheaper two-hop route; Floyd-Warshall agrees with Dijkstra; Kruskal and Prim give the same total (11 on the test graph, 1148 km on the 14-hub data); BFS and DFS reach the same hubs and skip an isolated hub; Bellman-Ford handles a negative edge and detects a negative cycle; strategy charges are 0, 1400 and 1750 for 100 km; the ledger survives a missing file and a bad path.
 
@@ -229,7 +281,7 @@ Space complexity here means extra memory used while the operation runs, except w
 | Brijesh Gaur | 2518302 | AVL tree, Huffman |
 | Tianshu Aswal | 2518708 | Bookings, ledger |
 
-> The Phase 3 additions (BFS, DFS, Prim, Bellman-Ford, menu options 12–14, the C++14 fixes, tests grown from 81 to 91, the larger sample data and the console layout in `main.cpp`) and the dashboard UI prototype were written with AI assistance and then reviewed by the team. Every member should be ready to explain their module.
+> The Phase 3 additions (BFS, DFS, Prim, Bellman-Ford, menu options 12–14, the C++14 fixes, tests grown from 81 to 91, the larger sample data and the console layout in `main.cpp`) and the web dashboard, Node.js bridge and JSON API program (`api_main.cpp`) were written with AI assistance and then reviewed by the team. Every member should be ready to explain their module.
 
 ## 18. Current Implementation Status
 
@@ -242,45 +294,29 @@ Space complexity here means extra memory used while the operation runs, except w
 | Dijkstra, Floyd-Warshall, Kruskal, Strategy pricing | Implemented, tested |
 | BFS, DFS, Prim, Bellman-Ford | Implemented, tested (new in Phase 3) |
 | Heap, queue, undo stack | Implemented, tested |
-| Booking persistence (`ledger.bin`) | Implemented, tested |
+| Booking persistence (`ledger.bin`), no double confirmation of one vehicle | Implemented, tested |
 | Huffman coding | Implemented, tested; output is a `0`/`1` text string, not packed bits |
 | Automated tests | 91 checks passing on GCC 13 |
 | AVL deletion | **Pending** |
 | Saving vehicles and receipts to files | **Pending** (only bookings are saved) |
 | Packed-bit Huffman file | **Pending** |
 | Verified build on MinGW GCC 6.3 | **Not yet verified** |
-| Dashboard UI (four screens) | **Design prototype only.** Sample data, not connected to the C++ backend, not part of this repository's build. See section 19. |
+| JSON API program (`velorent_api`) and Node.js bridge | Implemented, tested (14 end-to-end checks in `server/check.js`) |
+| Web dashboard (`web/`) | Implemented as an optional extra on top of the bridge; no automated tests for the front end. See section 19. |
 
 ## 19. Future Scope (Possible Enhancements)
 
-VeloRent can be extended in several directions beyond the current scope. The main idea is a graphical dashboard on top of the existing C++ backend, followed by smaller feature additions.
+### Web dashboard (implemented as an optional extra)
 
-### Graphical dashboard (design prototype exists, integration not done)
+The graphical dashboard that was only a design in the earlier phase now exists as `web/`. It reads and writes only through the Node.js bridge, so the C++ code stays the single source of truth for fleet, bookings, routing and pricing and no business logic is duplicated in JavaScript.
 
-A dark-themed web dashboard has been designed as a separate **UI prototype**. It has four screens that match the console menu:
+Design choice: the project targets MinGW GCC 6.3, where C++ networking and threading support is limited, so there is no C++ web server. Instead `velorent_api` reads one command per line from standard input and prints one JSON object per line, and the Node.js bridge starts it and passes the commands through.
 
-| Screen | What it shows |
-|---|---|
-| Dashboard | Total, available and booked vehicles, active bookings, revenue, recent booking activity |
-| Fleet management | Vehicle table with VIN/registration search, type and availability filters, sorting |
-| Bookings | Pending, confirmed and completed bookings, VIP/Regular tags, booking history |
-| Route planner | Pickup and drop-off hubs, route, total distance, drop-off charge |
+Limits of the current version:
 
-**Current status of the prototype:**
-
-- It uses **sample data** (the demo fleet and hub distances from this project, plus invented customers, dates and revenue).
-- It is **not connected** to the C++ backend. Nothing done in it changes `ledger.bin` or any vehicle.
-- Its route screen runs its own small shortest-path calculation in the browser, so it does not prove that the C++ code is called.
-- It is not included in the repository build and the C++ code does not depend on it.
-
-**Planned integration (not implemented):**
-
-1. Add a lightweight local HTTP API layer around the existing C++14 modules (for example `GET /vehicles`, `POST /bookings`, `POST /bookings/process`, `POST /bookings/undo`, `GET /route?from=&to=&mode=`).
-2. Keep the C++ code as the single source of truth for fleet, booking, routing and pricing, so no business logic is duplicated in JavaScript.
-3. Make the dashboard read and write only through that API.
-4. Test the API, the persistence in `ledger.bin` and the existing 91 checks before calling the integration done.
-
-Known risk for this step: the project targets MinGW GCC 6.3, where C++ threading and networking support is limited, so the server design must be chosen and tested on that compiler.
+- The vehicle list, hubs and routes are built into the C++ programs; only confirmed bookings are saved (`ledger.bin`).
+- Pending booking requests and the undo history live in the memory of the running `velorent_api` process and are lost when it stops.
+- The web front end has no automated tests; the C++ side has 91 unit tests and 14 end-to-end API checks.
 
 ### Other enhancements
 
@@ -293,4 +329,3 @@ Known risk for this step: the project targets MinGW GCC 6.3, where C++ threading
 ## 20. Academic Information
 
 Course: TCS302 Data Structures and TCS307 OOP with C++, Semester III, Department of Computer Science and Engineering, Graphic Era (Deemed to be University), Dehradun. Project phase: PBL Phase 3.
-
