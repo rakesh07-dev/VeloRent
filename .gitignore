@@ -1,0 +1,17 @@
+# build output
+velorent
+velorent.exe
+tests/run_tests
+tests/run_tests.exe
+*.o
+
+# runtime data
+ledger.bin
+test_ledger.bin
+
+# editor folders
+.vscode/
+*.cbp
+*.layout
+bin/
+obj/
