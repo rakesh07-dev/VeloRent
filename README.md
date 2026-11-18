@@ -328,4 +328,4 @@ Limits of the current version:
 
 ## 20. Academic Information
 
-Course: TCS302 Data Structures and TCS307 OOP with C++, Semester III, Department of Computer Science and Engineering, Graphic Era (Deemed to be University), Dehradun. Project phase: PBL Phase 3.
+Course: TCS302 Data Structures and TCS307 OOP with C++, Semester III, Department of Computer Science and Engineering, Graphic Era (Deemed to be University), Dehradun. Project phase: PBL Phase 3.  
