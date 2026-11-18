@@ -37,8 +37,8 @@ inline ostream& operator<<(ostream& os, const Booking& b) {
               << " day(s) | " << (b.tier == VIP ? "VIP" : "Regular") << " | Rs." << b.amount;
 }
 
-// ---------------------------------------------------------------------------
-// Binary MIN-HEAP stored in a vector. The "smallest" booking is the most urgent:
+
+
 // VIP before Regular, and earlier id (earlier request) first inside the same tier.
 // push / pop = O(log n), top = O(1).
 // ---------------------------------------------------------------------------
@@ -87,6 +87,7 @@ public:
         if (heapItems.empty()) {
             throw NotFoundException("Heap is empty");
         }
+
         return heapItems.front();
     }
     Booking pop() {
@@ -109,6 +110,7 @@ public:
 // FIFO queue built on a singly linked list (head = front, tail = back).
 // enqueue / dequeue = O(1).
 // ---------------------------------------------------------------------------
+
 class BookingQueue {
     struct Node {
         Booking data;
@@ -143,6 +145,7 @@ public:
         if (!head_) {
             throw NotFoundException("Queue is empty");
         }
+
         Node* n = head_;
         Booking b = n->data;
         head_ = n->next;
